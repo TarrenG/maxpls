@@ -51,7 +51,7 @@ def get_request(boxer):
 
 
 def boxer_lookup(boxer):
-    """ return info about given boxer, for testing purposes hardcoded errol spence link """
+    """ return info about given boxer (name or global id accepable as param) """
     result, best_match_name = get_request(boxer)
     content = result.content
     soup = BeautifulSoup(content, "lxml")
@@ -70,9 +70,9 @@ def boxer_lookup(boxer):
                             profileWLD.find_all("th")[0].text)
     stripped_td_values.append(record)
     KOs = int(profileWLD.find_all("th")[0].text.split(" ")[0])
-    wins = int(profileWLD.find_all("td", "bgW")[0].text)
+    fights  = int(profileWLD.find_all("td", "bgW")[0].text)+int(profileWLD.find_all("td", "bgL")[0].text)+int(profileWLD.find_all("td", "bgD")[0].text)
     stripped_td_values.append("KO %")
-    ko_percent = KOs/wins * 100
+    ko_percent = KOs/fights * 100
     stripped_td_values.append(str(round(ko_percent, 0))+"%")
     for item in td_values:
         text = repr(re.sub(r"(\s+)",r" ",item.text.strip()))

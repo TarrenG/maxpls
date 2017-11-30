@@ -7,6 +7,7 @@ SOCKET_DELAY = 1
 MAXPLS_SLACK_NAME = os.environ.get('MAXPLS_SLACK_NAME')
 OAUTH_TOKEN_SLACK = os.environ.get('OAUTH_TOKEN_SLACK')
 MAXPLS_SLACK_ID = os.environ.get('MAXPLS_SLACK_ID')
+MESSAGE_SIZE_LIMIT = 40
 
 slack_client = slackclient.SlackClient(OAUTH_TOKEN_SLACK)
 
@@ -30,7 +31,7 @@ def is_for_me(event):
     if event_type and event_type == 'message' and not event.get('user')==MAXPLS_SLACK_ID:
         text = event.get('text')
         channel = event.get('channel')
-        print(text.strip().split(),": is text.strip().split()")
+        #print(text.strip().split(),": is text.strip().split()")
         if name_pattern.search(str(event.get('text'))) is not None:
             print("\n\n %s \n\n" % name_pattern.search(str(event.get('text'))).group(0))
             return True
@@ -39,7 +40,7 @@ def is_for_me(event):
             return True
         if (is_private(event)):
             return True
-        if maxpls_slack_mention in text.strip().split():
+        if text is not None  and maxpls_slack_mention in text.strip().split():
             return True
 
     return False
@@ -80,11 +81,21 @@ def handle_message(message, user, channel, timestamp):
         user_mention = get_mention(user)
         name = resume_pattern.search(message).group(0)[7:-1].strip()
         print("\n is boxer resume request: name is %s" % name)
-        post_message(message=say_boxer_resume(user_mention, name), channel=channel)
+        message = say_boxer_resume(user_mention, name)
+        if (len(message.split("\n")) <= 40 ):
+            post_message(message=message, channel=channel)
+        else:
+            #post_message(message="%s Whew! that's a long one, check your dm's so I don't clog the chat." % user_mention, channel=channel)
+            post_message_thread(message=message, channel=channel, ts=timestamp)
 
 def post_message(message, channel):
+    """ post a message into the chat as normal """
     slack_client.api_call('chat.postMessage', channel=channel,
         text=message, as_user=True)
+
+def post_message_thread(message, channel, ts):
+    """ when messages are too long and will clog chat, start a thread to original message instead """
+    slack_client.api_call('chat.postMessage', channel=channel, text=message, as_user=True, thread_ts=ts)
 
 
 """ DETERMINING MESSAGE INTENTIONS """
@@ -102,7 +113,7 @@ def is_hi(message):
 def is_bye(message):
     tokens = [word.lower() for word in message.strip().split()]
     return any(g in tokens
-               for g in ['bye', 'goodbye', 'revoir', 'adios', 'later', 'cya'])
+                  for g in ['bye', 'goodbye', 'revoir', 'adios', 'later', 'cya'])
 
 def is_boxer_request(message):
     print("in is boxer request: %s" % message)
@@ -174,6 +185,7 @@ def run():
                 for event in event_list:
                     print(event)
                     if is_for_me(event):
+                        print("Its for me!!")
                         handle_message(message=event.get('text'),
                             user=event.get('user'), channel=event.get('channel'),timestamp=event.get('ts'))
                         time.sleep(SOCKET_DELAY)
